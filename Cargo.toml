@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+asset-importer = "0.4.0"
 gl = "0.14.0"
-gltf = "1.4.1"
 nalgebra-glm = "0.20.0"
 sdl2 = { version = "0.38.0"}
-obj-rs = {version = "0.7.4", features = ["glium"]}
-tobj = "4.0.3"
