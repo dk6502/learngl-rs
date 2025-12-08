@@ -1,4 +1,5 @@
 extern crate gl;
+extern crate nalgebra_glm as glm;
 
 use std::path::PathBuf;
 use std::vec;
@@ -6,10 +7,13 @@ use std::{error::Error, ffi::CString};
 
 use crate::resources::texture::Texture;
 use asset_importer::{ImportBuilder, Vector3D, postprocess::PostProcessSteps};
+use glm::{Mat4x4, Vec1, Vec3, half_pi, quarter_pi, two_over_pi, vec3};
+use sdl2::sys::random;
 
 use crate::resources::mesh::Mesh;
 
 pub struct Model {
+  model_path: PathBuf,
   position_mat4: glm::Mat4,
   meshes: Vec<Mesh>,
   textures: Vec<Texture>,
@@ -17,30 +21,52 @@ pub struct Model {
 
 impl Model {
   // Initializes a new model, currently only uses the first mesh
-  pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error>> {
+  pub fn new(model_path: PathBuf) -> Result<Self, Box<dyn Error>> {
     let importer = ImportBuilder::new();
     let scene = importer
-      .with_post_process(PostProcessSteps::TRIANGULATE | PostProcessSteps::FIND_INVALID_DATA)
-      .import_file(&path)?;
+      .with_post_process(PostProcessSteps::TRIANGULATE)
+      .import_file(&model_path)?;
     let mut meshes: Vec<Mesh> = vec![];
     let mut textures: Vec<Texture> = vec![];
     for mesh in scene.meshes() {
       let vertices = mesh.vertices();
-      if let Some(texcoords) = mesh.texture_coords(0) {
-        meshes.push(Mesh::new(vertices, texcoords));
-      } else {
-        meshes.push(Mesh::new(
-          vertices.clone(),
-          vec![Vector3D::new(0.0, 0.0, 0.0); vertices.len()],
+      let indices: Vec<u32> = mesh
+        .faces()
+        .flat_map(|f| {
+          f.indices()
+            .iter()
+            .map(|&idx| idx as u32)
+            .collect::<Vec<u32>>()
+        })
+        .collect();
+      let texcoords = mesh.texture_coords(0).expect("Should exist");
+      let texture = mesh.material_index();
+      meshes.push(Mesh::new(
+        texture,
+        vertices.clone(),
+        texcoords.clone(),
+        indices,
+      ));
+    }
+    for mat in scene.materials() {
+      for i in 0..mat.texture_count(asset_importer::TextureType::Diffuse) {
+        textures.push(Texture::new(
+          mat
+            .texture(asset_importer::TextureType::Diffuse, i)
+            .expect("Should work"),
         ));
-      };
+      }
     }
-    println!("{:?}", scene.has_textures());
-    for texture in scene.textures() {
-      textures.push(Texture::new(texture));
-    }
+    let mut mat4 = glm::identity::<f32, 4>();
+
+    mat4 = glm::rotate::<f32>(
+      &mat4,
+      quarter_pi::<f32>() * 270.0,
+      &glm::Vec3::new(1.0, 0.0, 0.0),
+    );
     let model = Model {
-      position_mat4: glm::identity(),
+      model_path: model_path,
+      position_mat4: mat4,
       meshes: meshes,
       textures: textures,
     };
@@ -53,14 +79,17 @@ impl Model {
         mesh.load(program);
       }
       for texture in self.textures.iter_mut() {
-        texture.load();
+        texture.load(&self.model_path);
       }
     }
   }
   // Draw the thing
-  pub unsafe fn draw(self: &mut Self) {
+  pub unsafe fn draw(self: &mut Self, program: u32) {
     unsafe {
       for mesh in self.meshes.iter_mut() {
+        self.textures[mesh.texture_id - 1].draw(program);
+        gl::UseProgram(program);
+
         mesh.draw();
       }
     }
@@ -75,8 +104,6 @@ impl Model {
         gl::FALSE as u8,
         &self.position_mat4 as *const _ as *const _,
       );
-      let texture_loc = gl::GetUniformLocation(program, CString::new("texture0").unwrap().as_ptr());
-      gl::Uniform1i(texture_loc, 0);
     }
   }
 }
