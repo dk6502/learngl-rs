@@ -1,18 +1,21 @@
+extern crate gl;
+
 use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::vec;
 use std::{error::Error, ffi::CString};
 
 use asset_importer::{ImportBuilder, Vector3D, postprocess::PostProcessSteps};
-use asset_importer::{Scene, TextureInfo, material_keys};
-use gl::types::{GLboolean, GLsizeiptr, GLuint};
+use asset_importer::{Scene, TextureInfo};
+use gl::types::{GLboolean, GLsizei, GLsizeiptr, GLuint};
 
 pub struct Model {
   scene: Scene,
-  pub position_mat4: glm::Mat4,
+  position_mat4: glm::Mat4,
   vertices: Vec<Vector3D>,
   vao: u32,
   vbo: u32,
+  texture: u32,
 }
 
 impl Model {
@@ -30,6 +33,7 @@ impl Model {
       vertices: vertices,
       vao: 0,
       vbo: 0,
+      texture: 0,
     };
     return Ok(model);
   }
@@ -79,7 +83,9 @@ impl Model {
   }
   // Loads an image
   unsafe fn load_texture(self: &mut Self) {
+    let mut data: Vec<u8> = Vec::new();
     let mut textures: Vec<TextureInfo> = vec![];
+    println!("Step 1");
     for mat in self.scene.materials() {
       for i in 0..mat.texture_count(asset_importer::TextureType::Diffuse) {
         if let Some(color_texture) = mat.texture(asset_importer::TextureType::Diffuse, i) {
@@ -87,8 +93,31 @@ impl Model {
         };
       }
     }
+    println!("Step 2");
     if let Some(texture) = textures.iter().next_back() {
       println!("{:?}", texture);
+      if let Ok(img) = image::open("models/sakuya/textures/color.png") {
+        let rgba = img.flipv().to_rgba8();
+        let (w, h) = rgba.dimensions();
+        data.extend_from_slice(&rgba.into_raw());
+
+        unsafe {
+          gl::GenTextures(gl::TEXTURE_2D as GLsizei, &mut self.texture);
+          gl::ActiveTexture(gl::TEXTURE0);
+          gl::BindTexture(gl::TEXTURE_2D, self.texture);
+          gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as i32,
+            w as i32,
+            h as i32,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            data.as_ptr() as *const _,
+          );
+        }
+      };
     };
   }
 }

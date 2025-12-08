@@ -1,6 +1,7 @@
 extern crate gl;
 extern crate nalgebra_glm as glm;
 
+use asset_importer::TextureInfo;
 use gl::types::*;
 use glm::{Vec3, vec3};
 use sdl2::event::Event;
@@ -47,10 +48,8 @@ fn link_program(fs: GLuint, vs: GLuint) -> GLuint {
 
 fn main() {
   // open the WaveFront .obj file and make it into an OpenGL-compatible array of vertices and indices
-  let obj_file = std::env::args()
-    .skip(1)
-    .next()
-    .expect("An obj file is required!");
+  let obj_file = "models/sakuya/InuSakuyaS.obj";
+  let texture_num: u32 = 0;
 
   // initialize sdl2
   let sdl = sdl2::init().unwrap();
@@ -76,7 +75,7 @@ fn main() {
   gl::load_with(|symbol| video_subsystem.gl_get_proc_address(symbol) as *const _);
 
   // these are the variables for the 3d camera
-  let mut camera = glm::look_at_rh(&vec3(0.0, 0.0, 10.0), &vec3(0.0, 0.0, 0.0), &Vec3::y());
+  let mut camera = glm::look_at_rh(&vec3(0.0, 0.0, 100.0), &vec3(0.0, 0.0, 0.0), &Vec3::y());
   let proj = glm::perspective::<f32>(1.0, glm::half_pi::<f32>() * 0.8, 0.1, 1000.0);
 
   let vs = compile_shader(VS_SRC, gl::VERTEX_SHADER);
@@ -87,6 +86,7 @@ fn main() {
 
   unsafe {
     gl::Enable(gl::DEPTH_TEST);
+    gl::Enable(gl::DEBUG_OUTPUT);
     gl::UseProgram(program);
     gl::BindFragDataLocation(program, 0, CString::new("out_color").unwrap().as_ptr());
     model.load(program);
