@@ -1,55 +1,18 @@
 extern crate gl;
 extern crate nalgebra_glm as glm;
 
-use asset_importer::TextureInfo;
-use gl::types::*;
 use glm::{Vec3, vec3};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::{ffi::CString, path::PathBuf, ptr, str};
+use std::{ffi::CString, path::PathBuf};
 
-use crate::model::Model;
+use crate::resources::{model::Model, shader::Shader};
 
-mod model;
-
-static VS_SRC: &str = include_str!("v.glsl");
-static FS_SRC: &str = include_str!("f.glsl");
-
-fn compile_shader(src: &str, ty: GLenum) -> GLuint {
-  let shader;
-  unsafe {
-    shader = gl::CreateShader(ty);
-    let c_str = CString::new(src.as_bytes()).unwrap();
-    gl::ShaderSource(shader, 1, &c_str.as_ptr(), ptr::null());
-    gl::CompileShader(shader);
-    let mut status = gl::FALSE as GLint;
-    gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
-    if status != (gl::TRUE as GLint) {
-      println!("shader not valid");
-    }
-  };
-  shader
-}
-
-fn link_program(fs: GLuint, vs: GLuint) -> GLuint {
-  unsafe {
-    let program = gl::CreateProgram();
-    gl::AttachShader(program, vs);
-    gl::AttachShader(program, fs);
-    gl::LinkProgram(program);
-    let mut status = gl::FALSE as GLint;
-    gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
-    if status != (gl::TRUE as GLint) {
-      println!("Shader didn't link")
-    }
-    program
-  }
-}
+mod resources;
 
 fn main() {
   // open the WaveFront .obj file and make it into an OpenGL-compatible array of vertices and indices
-  let obj_file = "models/sakuya/InuSakuyaS.obj";
-  let texture_num: u32 = 0;
+  let obj_file = PathBuf::from("models/de_dust2/InuSakuyaS.obj");
 
   // initialize sdl2
   let sdl = sdl2::init().unwrap();
@@ -63,7 +26,7 @@ fn main() {
 
   let gl_attr = video_subsystem.gl_attr();
   gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-  gl_attr.set_context_version(3, 3);
+  gl_attr.set_context_version(4, 5);
   gl_attr.set_context_flags().debug().set();
 
   let Ok(context) = window.gl_create_context() else {
@@ -75,40 +38,40 @@ fn main() {
   gl::load_with(|symbol| video_subsystem.gl_get_proc_address(symbol) as *const _);
 
   // these are the variables for the 3d camera
-  let mut camera = glm::look_at_rh(&vec3(0.0, 0.0, 100.0), &vec3(0.0, 0.0, 0.0), &Vec3::y());
+  let mut camera = glm::look_at_rh(&vec3(0.0, 0.0, 40.0), &vec3(0.0, 0.0, 0.0), &Vec3::y());
+  camera = glm::translate(&camera, &vec3(0.0, -10.0, 0.0));
   let proj = glm::perspective::<f32>(1.0, glm::half_pi::<f32>() * 0.8, 0.1, 1000.0);
 
-  let vs = compile_shader(VS_SRC, gl::VERTEX_SHADER);
-  let fs = compile_shader(FS_SRC, gl::FRAGMENT_SHADER);
-  let program = link_program(fs, vs);
-
   let mut model = Model::new(PathBuf::from(obj_file)).expect("Should work!");
+  let shader = Shader::new("src/v.glsl", "src/f.glsl").expect("Should compile");
 
   unsafe {
     gl::Enable(gl::DEPTH_TEST);
     gl::Enable(gl::DEBUG_OUTPUT);
-    gl::UseProgram(program);
-    gl::BindFragDataLocation(program, 0, CString::new("out_color").unwrap().as_ptr());
-    model.load(program);
+
+    gl::BindFragDataLocation(shader.id, 0, CString::new("out_color").unwrap().as_ptr());
+    model.load(shader.id);
+    gl::UseProgram(shader.id);
+
     gl::Viewport(0, 0, 600, 600);
   }
   let mut event_pump = sdl.event_pump().unwrap();
   'running: loop {
     unsafe {
-      let view_loc = gl::GetUniformLocation(program, CString::new("view").unwrap().as_ptr());
+      let view_loc = gl::GetUniformLocation(shader.id, CString::new("view").unwrap().as_ptr());
       gl::UniformMatrix4fv(
         view_loc,
         1,
         gl::FALSE as u8,
         &camera as *const _ as *const _,
       );
-      let proj_loc = gl::GetUniformLocation(program, CString::new("proj").unwrap().as_ptr());
+      let proj_loc = gl::GetUniformLocation(shader.id, CString::new("proj").unwrap().as_ptr());
       gl::UniformMatrix4fv(proj_loc, 1, gl::FALSE as u8, &proj as *const _ as *const _);
 
-      model.load_uniforms(program);
-      gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+      model.load_uniforms(shader.id);
+      gl::ClearColor(0.0, 0.0, 1.0, 1.0);
       gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-      gl::UseProgram(program);
+      gl::UseProgram(shader.id);
       model.draw();
     }
     window.gl_swap_window();
@@ -122,11 +85,11 @@ fn main() {
         Event::KeyDown {
           keycode: Some(Keycode::D),
           ..
-        } => camera = glm::rotate_y(&camera, 0.0174532925),
+        } => camera = glm::rotate_y(&camera, 1.0),
         Event::KeyDown {
           keycode: Some(Keycode::A),
           ..
-        } => camera = glm::rotate_y(&camera, -0.0174532925),
+        } => camera = glm::rotate_y(&camera, -1.0),
         _ => {}
       }
     }
