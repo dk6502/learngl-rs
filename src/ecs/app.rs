@@ -1,10 +1,8 @@
-use std::{error::Error, ffi::CString, ops::Deref, path::PathBuf};
+use std::{error::Error, ffi::CString, path::PathBuf};
 
-use image::imageops::FilterType::Triangle;
 use sdl2::{
   EventPump,
-  event::{self, Event},
-  keyboard::Keycode,
+  event::Event,
   video::{GLContext, Window},
 };
 
@@ -21,7 +19,7 @@ pub struct App {
   camera: Camera,
   shader: Shader,
   model: Model,
-  kbd_system: Box<dyn Fn(&mut Commands, Event)>,
+  kbd_system: Box<dyn Fn(&mut Commands, Event, &mut Camera)>,
 }
 
 impl App {
@@ -71,17 +69,8 @@ impl App {
       camera,
       shader,
       model: model2,
-      kbd_system: Box::new(|c, e| {}),
+      kbd_system: Box::new(|_, _, _| {}),
     });
-  }
-
-  pub fn with_kbd_system<F: Fn(&mut Commands, Event) + 'static>(
-    self: Self,
-    f: F,
-  ) -> Result<Self, Box<dyn Error>> {
-    let mut app: App = self;
-    app.kbd_system = Box::new(f);
-    return Ok(app);
   }
 
   pub fn run(self: &mut Self) {
@@ -97,8 +86,17 @@ impl App {
       }
       self.window.gl_swap_window();
       for event in self.event_pump.poll_iter() {
-        (self.kbd_system)(&mut self.commands, event)
+        (self.kbd_system)(&mut self.commands, event, &mut self.camera)
       }
     }
+  }
+
+  pub fn with_kbd_system<F: Fn(&mut Commands, Event, &mut Camera) + 'static>(
+    self: Self,
+    f: F,
+  ) -> Result<Self, Box<dyn Error>> {
+    let mut app: App = self;
+    app.kbd_system = Box::new(f);
+    return Ok(app);
   }
 }
