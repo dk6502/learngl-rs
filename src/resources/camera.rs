@@ -11,6 +11,7 @@ pub struct Camera {
   front: glm::Vec3,
   direction: glm::Vec3,
   matrix: glm::Mat4,
+  projection: glm::Mat4,
 }
 
 impl Camera {
@@ -28,6 +29,13 @@ impl Camera {
   }
   pub unsafe fn update_uniforms(self: &mut Self, program: u32) {
     unsafe {
+      let proj_loc = gl::GetUniformLocation(program, CString::new("proj").unwrap().as_ptr());
+      gl::UniformMatrix4fv(
+        proj_loc,
+        1,
+        gl::FALSE as u8,
+        &self.projection as *const _ as *const _,
+      );
       let view_loc = gl::GetUniformLocation(program, CString::new("view").unwrap().as_ptr());
       gl::UniformMatrix4fv(
         view_loc,
@@ -52,6 +60,7 @@ impl Default for Camera {
       up,
       front,
       matrix: glm::look_at(&pos, &(pos + front), &up),
+      projection: glm::perspective::<f32>(1.0, (45 as f32).to_radians(), 0.1, 1000.0),
     }
   }
 }
