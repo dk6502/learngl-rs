@@ -3,6 +3,9 @@ name = "learngl-rs"
 version = "0.1.0"
 edition = "2024"
 
+[[example]]
+name = "simple"
+
 [dependencies]
 asset-importer = "0.4.0"
 gl = "0.14.0"
