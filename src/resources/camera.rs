@@ -2,7 +2,7 @@ extern crate nalgebra_glm as glm;
 
 use std::ffi::CString;
 
-use glm::{Scalar, Vec3};
+use glm::Vec3;
 
 pub struct Camera {
   yaw: f32,
@@ -15,7 +15,10 @@ pub struct Camera {
 }
 
 impl Camera {
-  pub fn update(self: &mut Self) {
+  pub fn update(self: &mut Self, program: u32) {
+    unsafe {
+      self.update_uniforms(program);
+    }
     self.matrix = glm::look_at(&self.pos, &(&self.pos + self.front), &self.up)
   }
   pub fn move_local_z(self: &mut Self, speed: f32) {
@@ -27,7 +30,7 @@ impl Camera {
     self.direction.z = self.yaw.to_radians().sin();
     self.front = glm::normalize(&self.direction);
   }
-  pub unsafe fn update_uniforms(self: &mut Self, program: u32) {
+  unsafe fn update_uniforms(self: &mut Self, program: u32) {
     unsafe {
       let proj_loc = gl::GetUniformLocation(program, CString::new("proj").unwrap().as_ptr());
       gl::UniformMatrix4fv(

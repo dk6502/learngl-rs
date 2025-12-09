@@ -1,5 +1,5 @@
 use asset_importer::Vector3D;
-use gl::types::{GLboolean, GLsizeiptr, GLuint};
+use gl::types::{GLboolean, GLuint};
 use itertools::interleave;
 use std::{ffi::CString, os::raw::c_void};
 

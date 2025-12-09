@@ -6,15 +6,13 @@ use std::vec;
 use std::{error::Error, ffi::CString};
 
 use crate::resources::texture::Texture;
-use asset_importer::{ImportBuilder, Vector3D, postprocess::PostProcessSteps};
-use glm::{Mat4x4, Vec1, Vec3, half_pi, quarter_pi, two_over_pi, vec3};
-use sdl2::sys::random;
+use asset_importer::{ImportBuilder, postprocess::PostProcessSteps};
 
 use crate::resources::mesh::Mesh;
 
 pub struct Model {
   model_path: PathBuf,
-  position_mat4: glm::Mat4,
+  pub position_mat4: glm::Mat4,
   meshes: Vec<Mesh>,
   textures: Vec<Texture>,
 }
@@ -61,7 +59,7 @@ impl Model {
 
     mat4 = glm::rotate::<f32>(
       &mat4,
-      quarter_pi::<f32>() * 270.0,
+      (270.0 as f32).to_radians(),
       &glm::Vec3::new(1.0, 0.0, 0.0),
     );
     let model = Model {
@@ -86,16 +84,16 @@ impl Model {
   // Draw the thing
   pub unsafe fn draw(self: &mut Self, program: u32) {
     unsafe {
+      self.load_uniforms(program);
+      gl::UseProgram(program);
       for mesh in self.meshes.iter_mut() {
         self.textures[mesh.texture_id - 1].draw(program);
-        gl::UseProgram(program);
-
         mesh.draw();
       }
     }
   }
   // this makes the uniforms
-  pub unsafe fn load_uniforms(self: &mut Self, program: u32) {
+  unsafe fn load_uniforms(self: &mut Self, program: u32) {
     unsafe {
       let model_loc = gl::GetUniformLocation(program, CString::new("model").unwrap().as_ptr());
       gl::UniformMatrix4fv(
