@@ -7,7 +7,7 @@ use sdl2::{
 };
 
 use crate::{
-  ecs::commands::Commands,
+  ecs::{commands::Commands, world::World},
   resources::{camera::Camera, model::Model, shader::Shader},
 };
 
@@ -18,8 +18,9 @@ pub struct App {
   _context: GLContext,
   camera: Camera,
   shader: Shader,
-  model: Model,
+  world: World,
   kbd_system: Box<dyn Fn(&mut Commands, Event, &mut Camera)>,
+  startup_system: Box<dyn Fn(&mut Commands, &mut World)>,
 }
 
 impl App {
@@ -47,14 +48,13 @@ impl App {
 
     let shader = Shader::new("src/v.glsl", "src/f.glsl").expect("Should compile");
 
+    let world = World::default();
     unsafe {
       gl::Enable(gl::DEPTH_TEST);
       gl::Enable(gl::DEBUG_OUTPUT);
 
       gl::BindFragDataLocation(shader.id, 0, CString::new("out_color").unwrap().as_ptr());
       gl::UseProgram(shader.id);
-
-      model2.load(shader.id);
 
       gl::Viewport(0, 0, 600, 600);
     }
@@ -66,14 +66,23 @@ impl App {
       commands,
       event_pump,
       _context: context,
+      world,
       camera,
       shader,
-      model: model2,
       kbd_system: Box::new(|_, _, _| {}),
+      startup_system: Box::new(|_, _| {}),
     });
   }
 
   pub fn run(self: &mut Self) {
+    (self.startup_system)(&mut self.commands, &mut self.world);
+    for model in &mut self.world.model_components {
+      if let Some(model) = model {
+        unsafe {
+          model.load(self.shader.id);
+        }
+      }
+    }
     'running: loop {
       if self.commands.should_close {
         break 'running;
@@ -82,7 +91,11 @@ impl App {
         gl::ClearColor(0.0, 0.0, 1.0, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         self.camera.update(self.shader.id);
-        self.model.draw(self.shader.id);
+        for model in &mut self.world.model_components {
+          if let Some(model) = model {
+            model.draw(self.shader.id);
+          }
+        }
       }
       self.window.gl_swap_window();
       for event in self.event_pump.poll_iter() {
@@ -91,12 +104,18 @@ impl App {
     }
   }
 
+  pub fn with_startup_system<F: Fn(&mut Commands, &mut World) + 'static>(self: Self, f: F) -> Self {
+    let mut app = self;
+    app.startup_system = Box::new(f);
+    return app;
+  }
+
   pub fn with_kbd_system<F: Fn(&mut Commands, Event, &mut Camera) + 'static>(
     self: Self,
     f: F,
-  ) -> Result<Self, Box<dyn Error>> {
+  ) -> Self {
     let mut app: App = self;
     app.kbd_system = Box::new(f);
-    return Ok(app);
+    return app;
   }
 }

@@ -7,12 +7,13 @@ use std::{error::Error, ffi::CString};
 
 use crate::resources::texture::Texture;
 use asset_importer::{ImportBuilder, postprocess::PostProcessSteps};
+use nalgebra_glm::Vec3;
 
 use crate::resources::mesh::Mesh;
 
 pub struct Model {
   model_path: PathBuf,
-  pub position_mat4: glm::Mat4,
+  position_mat4: glm::Mat4,
   meshes: Vec<Mesh>,
   textures: Vec<Texture>,
 }
@@ -57,11 +58,6 @@ impl Model {
     }
     let mut mat4 = glm::identity::<f32, 4>();
 
-    mat4 = glm::rotate::<f32>(
-      &mat4,
-      (270.0 as f32).to_radians(),
-      &glm::Vec3::new(1.0, 0.0, 0.0),
-    );
     let model = Model {
       model_path: model_path,
       position_mat4: mat4,
@@ -69,6 +65,12 @@ impl Model {
       textures: textures,
     };
     return Ok(model);
+  }
+
+  pub fn with_rotate(self: Self, radians: f32, rot: &Vec3) -> Self {
+    let mut model = self;
+    model.position_mat4 = glm::rotate(&model.position_mat4, radians, rot);
+    model
   }
   // Loads the mesh into OpenGL
   pub unsafe fn load(self: &mut Self, program: u32) {
