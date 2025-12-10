@@ -2,21 +2,31 @@ use std::{ffi::CString, path::PathBuf};
 
 use asset_importer::TextureInfo;
 pub struct Texture {
-  texture: TextureInfo,
+  texture: Option<TextureInfo>,
   pub id: u32,
 }
 
 impl Texture {
-  pub fn new(texture: TextureInfo) -> Self {
-    Self { texture, id: 0 }
+  pub fn new(texture: Option<TextureInfo>) -> Self {
+    Self {
+      texture: texture,
+      id: 0,
+    }
   }
 
+  // if there is a texture, this will load the path of the texture
+  // otherwise it will load the fallback texture
   #[allow(clippy::ptr_arg)]
   pub fn load(&mut self, model_path: &PathBuf) {
-    let path = &self.texture.path;
-    let mut tex_path = model_path.clone();
-    tex_path.pop();
-    tex_path.push(path);
+    let mut tex_path: PathBuf;
+    if let Some(texture) = &mut self.texture {
+      let path = texture.path.clone();
+      tex_path = model_path.clone();
+      tex_path.pop();
+      tex_path.push(path);
+    } else {
+      tex_path = PathBuf::from("assets/textures/empty.png");
+    }
     if let Ok(img) = image::open(tex_path) {
       let rgba = img.flipv().to_rgba8();
       let (w, h) = rgba.dimensions();
@@ -45,8 +55,11 @@ impl Texture {
         );
         gl::GenerateMipmap(gl::TEXTURE_2D);
       }
-    };
+    } else {
+      println!("Could not load any texture!");
+    }
   }
+
   pub unsafe fn draw(&mut self, program: u32) {
     unsafe {
       gl::BindTexture(gl::TEXTURE_2D, self.id);

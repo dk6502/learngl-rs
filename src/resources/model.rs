@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::vec;
 
 use crate::resources::texture::Texture;
-use asset_importer::Vector3D;
 use asset_importer::{ImportBuilder, postprocess::PostProcessSteps};
 use nalgebra_glm::Vec3;
 
@@ -16,28 +15,23 @@ pub struct Model {
   model_path: PathBuf,
   position_mat4: glm::Mat4,
   meshes: Vec<Mesh>,
-  textures: Option<Vec<Texture>>,
+  textures: Vec<Texture>,
 }
 
 impl Model {
   // Initializes a new model, currently only uses the first mesh
   pub fn new(model_path: PathBuf) -> Self {
-    let mut has_texture = true;
-    #[allow(clippy::needless_late_init)]
-    let textures: Option<Vec<Texture>>;
     let importer = ImportBuilder::new();
     let scene = importer
       .with_post_process(PostProcessSteps::TRIANGULATE)
       .import_file(&model_path)
       .expect("Could not find the model path!");
     let mut meshes: Vec<Mesh> = vec![];
-    let mut textures_vec: Vec<Texture> = vec![];
+    let mut textures: Vec<Texture> = vec![];
     for mat in scene.materials() {
       for i in 0..mat.texture_count(asset_importer::TextureType::Diffuse) {
-        textures_vec.push(Texture::new(
-          mat
-            .texture(asset_importer::TextureType::Diffuse, i)
-            .expect("Should work"),
+        textures.push(Texture::new(
+          mat.texture(asset_importer::TextureType::Diffuse, i),
         ));
       }
     }
@@ -58,16 +52,10 @@ impl Model {
         meshes.push(Mesh::new(
           texture,
           vertices.clone(),
-          vec![Vector3D::new(0.0, 0.0, 0.0); vertices.len()],
+          vertices.clone(),
           indices,
         ));
-        has_texture = false;
       }
-    }
-    if has_texture {
-      textures = Some(textures_vec)
-    } else {
-      textures = None;
     }
     let mat4 = glm::identity::<f32, 4>();
 
@@ -105,8 +93,13 @@ impl Model {
       for mesh in self.meshes.iter_mut() {
         mesh.load(program);
       }
-      if let Some(textures) = &mut self.textures {
-        for texture in textures.iter_mut() {
+      if self.textures.len() == 0 {
+        self.textures.push(Texture::new(None));
+        for texture in self.textures.iter_mut() {
+          texture.load(&self.model_path);
+        }
+      } else {
+        for texture in &mut self.textures {
           texture.load(&self.model_path);
         }
       }
@@ -118,9 +111,7 @@ impl Model {
       self.load_uniforms(program);
       gl::UseProgram(program);
       for mesh in self.meshes.iter_mut() {
-        if let Some(textures) = &mut self.textures {
-          textures[mesh.texture_id - 1].draw(program);
-        }
+        self.textures[mesh.texture_id - 1].draw(program);
         mesh.draw();
       }
     }
