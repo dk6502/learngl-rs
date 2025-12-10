@@ -21,7 +21,7 @@ impl Mesh {
   ) -> Self {
     let data = interleave(vertices, texcoords).collect::<Vec<_>>();
     Mesh {
-      texture_id: texture_id,
+      texture_id,
       index_data: indices,
       vertices_texcoords: data,
       ebo: 0,
@@ -29,7 +29,7 @@ impl Mesh {
       vbo: 0,
     }
   }
-  pub unsafe fn load(self: &mut Self, program: u32) {
+  pub unsafe fn load(&mut self, program: u32) {
     unsafe {
       let (_, data_array, _) = self.vertices_texcoords.align_to::<u8>();
       gl::GenVertexArrays(1, &mut self.vao);
@@ -38,7 +38,7 @@ impl Mesh {
       gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
       gl::BufferData(
         gl::ARRAY_BUFFER,
-        (data_array.len() * std::mem::size_of::<u8>()) as isize,
+        std::mem::size_of_val(data_array) as isize,
         data_array.as_ptr() as *const _,
         gl::STATIC_DRAW,
       );
@@ -58,7 +58,7 @@ impl Mesh {
         gl::FLOAT,
         gl::FALSE as GLboolean,
         (size_of::<Vector3D>() * 2) as i32,
-        0 as *const c_void,
+        std::ptr::null(),
       );
       let texcoords_attr =
         gl::GetAttribLocation(program, CString::new("texcoords").unwrap().as_ptr());
@@ -74,14 +74,14 @@ impl Mesh {
     }
   }
 
-  pub unsafe fn draw(self: &mut Self) {
+  pub unsafe fn draw(&mut self) {
     unsafe {
       gl::BindVertexArray(self.vao);
       gl::DrawElements(
         gl::TRIANGLES,
         (self.vertices_texcoords.len() * 3) as i32,
         gl::UNSIGNED_INT,
-        0 as *const _,
+        std::ptr::null(),
       );
     }
   }

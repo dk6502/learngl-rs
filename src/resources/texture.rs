@@ -8,12 +8,11 @@ pub struct Texture {
 
 impl Texture {
   pub fn new(texture: TextureInfo) -> Self {
-    Self {
-      texture: texture,
-      id: 0,
-    }
+    Self { texture, id: 0 }
   }
-  pub fn load(self: &mut Self, model_path: &PathBuf) {
+
+  #[allow(clippy::ptr_arg)]
+  pub fn load(&mut self, model_path: &PathBuf) {
     let path = &self.texture.path;
     let mut tex_path = model_path.clone();
     tex_path.pop();
@@ -48,7 +47,7 @@ impl Texture {
       }
     };
   }
-  pub unsafe fn draw(self: &mut Self, program: u32) {
+  pub unsafe fn draw(&mut self, program: u32) {
     unsafe {
       gl::BindTexture(gl::TEXTURE_2D, self.id);
       gl::ActiveTexture(gl::TEXTURE0);

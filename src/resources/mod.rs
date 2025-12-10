@@ -1,5 +1,4 @@
 pub mod camera;
-mod mesh;
-pub mod model;
-pub mod shader;
-mod texture;
+pub(crate) mod mesh;
+pub(crate) mod shader;
+pub(crate) mod texture;

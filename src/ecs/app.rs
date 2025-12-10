@@ -1,4 +1,4 @@
-use std::{error::Error, ffi::CString, path::PathBuf};
+use std::{error::Error, ffi::CString};
 
 use sdl2::{
   EventPump,
@@ -8,7 +8,7 @@ use sdl2::{
 
 use crate::{
   ecs::{commands::Commands, world::World},
-  resources::{camera::Camera, model::Model, shader::Shader},
+  resources::{camera::Camera, shader::Shader},
 };
 
 pub struct App {
@@ -19,7 +19,9 @@ pub struct App {
   camera: Camera,
   shader: Shader,
   world: World,
+  #[allow(clippy::type_complexity)]
   kbd_system: Box<dyn Fn(&mut Commands, Event, &mut Camera)>,
+  #[allow(clippy::type_complexity)]
   startup_system: Box<dyn Fn(&mut Commands, &mut World)>,
 }
 
@@ -44,8 +46,6 @@ impl App {
     gl::load_with(|symbol| video_subsystem.gl_get_proc_address(symbol) as *const _);
     let camera = Camera::default();
 
-    let mut model2 = Model::new(PathBuf::from("models/Dust 2/Dust2.obj")).expect("Should work!");
-
     let shader = Shader::new("src/v.glsl", "src/f.glsl").expect("Should compile");
 
     let world = World::default();
@@ -61,7 +61,7 @@ impl App {
 
     let event_pump = sdl.event_pump()?;
 
-    return Ok(App {
+    Ok(App {
       window,
       commands,
       event_pump,
@@ -71,16 +71,14 @@ impl App {
       shader,
       kbd_system: Box::new(|_, _, _| {}),
       startup_system: Box::new(|_, _| {}),
-    });
+    })
   }
 
-  pub fn run(self: &mut Self) {
+  pub fn run(&mut self) {
     (self.startup_system)(&mut self.commands, &mut self.world);
-    for model in &mut self.world.model_components {
-      if let Some(model) = model {
-        unsafe {
-          model.load(self.shader.id);
-        }
+    unsafe {
+      for model in self.world.model_components.iter_mut().flatten() {
+        model.load(self.shader.id);
       }
     }
     'running: loop {
@@ -91,10 +89,8 @@ impl App {
         gl::ClearColor(0.0, 0.0, 1.0, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         self.camera.update(self.shader.id);
-        for model in &mut self.world.model_components {
-          if let Some(model) = model {
-            model.draw(self.shader.id);
-          }
+        for model in self.world.model_components.iter_mut().flatten() {
+          model.draw(self.shader.id);
         }
       }
       self.window.gl_swap_window();
@@ -104,18 +100,15 @@ impl App {
     }
   }
 
-  pub fn with_startup_system<F: Fn(&mut Commands, &mut World) + 'static>(self: Self, f: F) -> Self {
+  pub fn with_startup_system<F: Fn(&mut Commands, &mut World) + 'static>(self, f: F) -> Self {
     let mut app = self;
     app.startup_system = Box::new(f);
-    return app;
+    app
   }
 
-  pub fn with_kbd_system<F: Fn(&mut Commands, Event, &mut Camera) + 'static>(
-    self: Self,
-    f: F,
-  ) -> Self {
+  pub fn with_kbd_system<F: Fn(&mut Commands, Event, &mut Camera) + 'static>(self, f: F) -> Self {
     let mut app: App = self;
     app.kbd_system = Box::new(f);
-    return app;
+    app
   }
 }

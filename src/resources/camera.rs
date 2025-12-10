@@ -15,37 +15,36 @@ pub struct Camera {
 }
 
 impl Camera {
-  pub fn update(self: &mut Self, program: u32) {
+  pub fn update(&mut self, program: u32) {
     unsafe {
       self.update_uniforms(program);
     }
-    self.matrix = glm::look_at(&self.pos, &(&self.pos + self.front), &self.up)
+    self.matrix = glm::look_at(&self.pos, &(self.pos + self.front), &self.up)
   }
-  pub fn move_local_z(self: &mut Self, speed: f32) {
+  pub fn move_local_z(&mut self, speed: f32) {
     self.pos += speed * self.front;
   }
-  pub fn rotate_local_y(self: &mut Self, speed: f32) {
+
+  //
+  pub fn rotate_local_y(&mut self, speed: f32) {
     self.yaw += speed;
     self.direction.x = self.yaw.to_radians().cos();
     self.direction.z = self.yaw.to_radians().sin();
     self.front = glm::normalize(&self.direction);
   }
-  unsafe fn update_uniforms(self: &mut Self, program: u32) {
+
+  // updates uniforms
+  unsafe fn update_uniforms(&mut self, program: u32) {
     unsafe {
       let proj_loc = gl::GetUniformLocation(program, CString::new("proj").unwrap().as_ptr());
       gl::UniformMatrix4fv(
         proj_loc,
         1,
-        gl::FALSE as u8,
+        gl::FALSE,
         &self.projection as *const _ as *const _,
       );
       let view_loc = gl::GetUniformLocation(program, CString::new("view").unwrap().as_ptr());
-      gl::UniformMatrix4fv(
-        view_loc,
-        1,
-        gl::FALSE as u8,
-        &self.matrix as *const _ as *const _,
-      );
+      gl::UniformMatrix4fv(view_loc, 1, gl::FALSE, &self.matrix as *const _ as *const _);
     }
   }
 }
@@ -63,7 +62,7 @@ impl Default for Camera {
       up,
       front,
       matrix: glm::look_at(&pos, &(pos + front), &up),
-      projection: glm::perspective::<f32>(1.0, (45 as f32).to_radians(), 0.1, 1000.0),
+      projection: glm::perspective::<f32>(1.0, 45_f32.to_radians(), 0.1, 1000.0),
     }
   }
 }
